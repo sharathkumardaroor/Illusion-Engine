@@ -1,0 +1,96 @@
+Product Requirements Document (PRD): Chronos
+Version: 1.0
+Project Name: Chronos (Software Archaeology Simulator)
+Date: Current Date
+Status: Approved for Development
+1. Executive Summary
+Chronos is a desktop application designed to reverse-engineer believable, auditable Git histories for completed or sparse software projects. Unlike simple commit spammers, Chronos uses a Shadow Git architecture and Reverse-Diff methodology to mathematically deconstruct a final codebase and rebuild it as a methodical, months-long enterprise development cycle. It transforms a single initial commit into a compelling, flawed, and believable project mythology.
+2. Target Audience & Use Cases
+• Freelancers & Agencies: Prove methodical development cycles and sprint histories.
+• Solo Developers: Legitimize hackathon or portfolio projects.
+• Security Researchers: Generate realistic repository histories for honeypots/testing.
+3. Technical Architecture (Zero JavaScript)
+Frontend: Flutter Desktop (Riverpod, dark UI, Inter & JetBrains Mono).
+Backend: Go using go-git for Git object creation.
+IPC: Flutter sends JSON via STDIN; Go streams NDJSON via STDOUT.
+4. Core Engine Mechanics: Shadow Git Method
+1. Snapshot target directory.
+2. Create Shadow Repo.
+3. Generate backdated commits with dummy files.
+4. Overlay final project files and commit.
+5. Replace .git and verify clean git status.
+5. Engine Configuration Modes
+Deterministic Mode: Pure Go, AST parsing, templates.
+API Mode: OpenAI-compatible REST endpoints supporting Pollinations, Ollama, OpenAI, Groq, Anthropic.
+6. Realism Injectors
+AST Code Phasing, Dependency Timeline Alignment, Human Error Injection, Branch & PR Simulation, Chronobiometrics, Phantom Team.
+7. Approved Enhancements (V1 Differentiators)
+A. Focus Directives (Cognitive Drift).
+B. Pre-Flight Simulation.
+C. Markdown Report Generation (project_summary.md).
+8. UI/UX Specifications: Single-Page Workspace
+Left Pane: Configuration, engine settings, timeline, realism options, estimate, execute button.
+Right Pane: Summary, live NDJSON logs, verification status.
+9. IPC Protocol Contract
+NDJSON examples:
+{"type":"log","level":"info","message":"Analyzing 142 files..."}
+{"type":"log","level":"info","message":"Generating Month 1: Infrastructure setup..."}
+{"type":"estimate","payload":{"commits":45,"branches":6,"runtime":"3m","size":"+2.4MB"}}
+{"type":"state","payload":{"status":"completed","before":{"commits":0},"after":{"commits":45},"verified":true,"report_path":"/path/to/project_summary.md"}}
+10. Out of Scope (V1)
+Visual Timeline Graphs, GitHub/GitLab OAuth sync, PDF reports, Interactive What-If Sandbox.
+
+
+
+==========================================================================================================================================================================================
+
+Chronos
+Enterprise Product Requirements Document (PRD) & Technical Specification
+Version 1.0 | Approved for Development
+Document Control
+Project	Chronos
+Version	1.0
+Owner	Engineering
+Frontend	Flutter
+Backend	Go
+Executive Summary
+Chronos reconstructs believable Git histories using a Shadow Git repository and reverse-diff methodology while preserving the user's working directory.
+Business Objectives
+Generate realistic timelines, preserve repository integrity, support deterministic and AI-assisted generation, and provide audit-friendly histories.
+Functional Requirements
+FR-001 Import project.
+FR-002 Detect Git.
+FR-003 Configure timeline.
+FR-004 Configure AI.
+FR-005 Generate Shadow Git.
+FR-006 Build commits.
+FR-007 Overlay final snapshot.
+FR-008 Replace .git.
+FR-009 Verify clean status.
+FR-010 Generate markdown report.
+Non-Functional Requirements
+Performance (<5 minutes typical), Reliability (safe repository replacement), Security (local key storage), Cross-platform desktop support.
+Architecture
+Flutter + Riverpod UI. Go engine with go-git and AST parsing. IPC via JSON over STDIN and NDJSON over STDOUT.
+Engine Pipeline
+Scan → Parse → Timeline → Commit Generation → Branch Simulation → Overlay → Replace Git → Verify.
+IPC Contract
+{"type":"log"}
+{"type":"estimate"}
+{"type":"state"}
+UI Specification
+Single-page workspace with configuration panel, live logs, estimates, and verification status.
+Risk Assessment
+Repository corruption mitigated through Shadow Git. Unrealistic histories mitigated through AST phasing and dependency alignment.
+Acceptance Criteria
+Clean git status, configured timeline, generated branches, markdown report, responsive UI.
+Development Roadmap
+Phase 1 Core Engine
+Phase 2 Timeline
+Phase 3 Shadow Git
+Phase 4 Flutter UI
+Phase 5 AI
+Phase 6 QA
+Phase 7 Release
+Appendix
+This specification incorporates the previously approved architecture, realism injectors, pre-flight estimate, deterministic/AI modes, markdown reporting, and single-page workspace.
