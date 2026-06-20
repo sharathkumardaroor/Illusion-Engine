@@ -33,10 +33,13 @@ class ChronosWorkspace extends ConsumerStatefulWidget {
 }
 
 class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
-  String? targetDir;
-  bool useAI = false;
-  final TextEditingController baseUrlController = TextEditingController(text: 'https://text.pollinations.ai/');
-  final TextEditingController modelController = TextEditingController(text: 'gpt-4o');
+  String? sourceDir;
+  String? outputDir;
+  String engineMode = 'Deterministic';
+
+  final TextEditingController baseUrlController = TextEditingController();
+  final TextEditingController apiKeyController = TextEditingController();
+  final TextEditingController modelController = TextEditingController();
   final TextEditingController focusAreaController = TextEditingController();
   final TextEditingController struggleAreaController = TextEditingController();
 
@@ -49,6 +52,7 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
   Widget build(BuildContext context) {
     final engineState = ref.watch(engineStateProvider);
     final logs = engineState['logs'] as List<String>;
+    final isRunning = engineState['status'] == 'running' || engineState['status'] == 'preparing-test';
 
     return Scaffold(
       body: Row(
@@ -63,44 +67,80 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Chronos Workspace', style: Theme.of(context).textTheme.headlineMedium),
-                    const SizedBox(height: 32),
-
-                    _sectionTitle('Target Directory'),
-                    const SizedBox(height: 8),
-                    Row(
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 16,
+                      runSpacing: 16,
                       children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.black26,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(targetDir ?? 'No directory selected', overflow: TextOverflow.ellipsis),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton(
-                          onPressed: () async {
-                            String? result = await FilePicker.platform.getDirectoryPath();
-                            if (result != null) setState(() => targetDir = result);
-                          },
-                          child: const Text('Pick Folder'),
+                        Text('Chronos Workspace', style: Theme.of(context).textTheme.headlineMedium),
+                        OutlinedButton.icon(
+                          onPressed: isRunning ? null : () => ref.read(engineStateProvider.notifier).runTestSimulation(),
+                          icon: const Icon(Icons.science),
+                          label: const Text('Run Test Simulation'),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 32),
+
+                    _sectionTitle('Source Project Directory'),
+                    const SizedBox(height: 8),
+                    _directoryPicker(
+                      path: sourceDir,
+                      onPick: () async {
+                        String? result = await FilePicker.platform.getDirectoryPath();
+                        if (result != null) {
+                          setState(() {
+                            sourceDir = result;
+                            outputDir ??= '${result}_chronos';
+                          });
+                        }
+                      },
+                      placeholder: 'Select source project folder',
+                    ),
+
+                    const SizedBox(height: 24),
+                    _sectionTitle('Output Directory'),
+                    const SizedBox(height: 8),
+                    _directoryPicker(
+                      path: outputDir,
+                      onPick: () async {
+                        String? result = await FilePicker.platform.getDirectoryPath();
+                        if (result != null) setState(() => outputDir = result);
+                      },
+                      placeholder: 'Select where to create revamp',
                     ),
 
                     const SizedBox(height: 24),
                     _sectionTitle('Engine Config'),
-                    SwitchListTile(
-                      title: const Text('Use AI Generation'),
-                      value: useAI,
-                      onChanged: (val) => setState(() => useAI = val),
+                    DropdownButtonFormField<String>(
+                      value: engineMode,
+                      items: ['Deterministic', 'Free Cloud AI', 'Local AI (Ollama)', 'Custom API']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          engineMode = val!;
+                          if (val == 'Free Cloud AI') {
+                            baseUrlController.text = 'https://text.pollinations.ai/';
+                            modelController.text = 'gpt-4o';
+                          } else if (val == 'Local AI (Ollama)') {
+                            baseUrlController.text = 'http://localhost:11434/v1';
+                            modelController.text = 'llama3';
+                          }
+                        });
+                      },
+                      decoration: const InputDecoration(border: OutlineInputBorder()),
                     ),
-                    if (useAI) ...[
-                      TextField(controller: baseUrlController, decoration: const InputDecoration(labelText: 'Base URL')),
-                      TextField(controller: modelController, decoration: const InputDecoration(labelText: 'Model Name')),
+                    if (engineMode == 'Custom API' || engineMode == 'Free Cloud AI' || engineMode == 'Local AI (Ollama)') ...[
+                      const SizedBox(height: 12),
+                      TextField(controller: baseUrlController, decoration: const InputDecoration(labelText: 'Base URL', border: OutlineInputBorder())),
+                      if (engineMode == 'Custom API') ...[
+                        const SizedBox(height: 12),
+                        TextField(controller: apiKeyController, decoration: const InputDecoration(labelText: 'API Key', border: OutlineInputBorder())),
+                      ],
+                      const SizedBox(height: 12),
+                      TextField(controller: modelController, decoration: const InputDecoration(labelText: 'Model Name', border: OutlineInputBorder())),
                     ],
 
                     const SizedBox(height: 24),
@@ -121,11 +161,14 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                       height: 50,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
-                        onPressed: targetDir == null || engineState['status'] == 'running' ? null : () {
+                        onPressed: sourceDir == null || outputDir == null || isRunning ? null : () {
                           ref.read(engineStateProvider.notifier).execute({
-                            'targetDir': targetDir,
-                            'useAI': useAI,
+                            'sourceDir': sourceDir,
+                            'outputDir': outputDir,
+                            'useAI': engineMode != 'Deterministic',
+                            'provider': engineMode,
                             'baseUrl': baseUrlController.text,
+                            'apiKey': apiKeyController.text,
                             'model': modelController.text,
                             'focusArea': focusAreaController.text,
                             'struggleArea': struggleAreaController.text,
@@ -135,7 +178,7 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                             'branches': branches,
                           });
                         },
-                        child: Text(engineState['status'] == 'running' ? 'Executing...' : 'Execute Chronos'),
+                        child: Text(isRunning ? 'Executing Revamp...' : 'Execute Chronos'),
                       ),
                     ),
                   ],
@@ -152,9 +195,11 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('State & Logs', style: Theme.of(context).textTheme.headlineSmall),
+                  Text('State Summary', style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 24),
-                  _stateCard('Commits', '${engineState['commitsBefore']} -> ${engineState['commitsAfter']}'),
+                  _stateCard('Source', sourceDir == null ? '-' : '${engineState['commitsBefore']} commits'),
+                  const SizedBox(height: 12),
+                  _stateCard('Output', '${engineState['commitsAfter']} commits'),
                   const SizedBox(height: 12),
                   _stateCard('Status', engineState['status'].toString().toUpperCase()),
                   if (engineState['verified'] == true) ...[
@@ -198,17 +243,29 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
 
   Widget _sectionTitle(String title) => Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent));
 
+  Widget _directoryPicker({required String? path, required VoidCallback onPick, required String placeholder}) => Row(
+    children: [
+      Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(8)),
+          child: Text(path ?? placeholder, overflow: TextOverflow.ellipsis),
+        ),
+      ),
+      const SizedBox(width: 12),
+      ElevatedButton(onPressed: onPick, child: const Text('Pick Folder')),
+    ],
+  );
+
   Widget _stateCard(String label, String value) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    decoration: BoxDecoration(
-      color: Colors.white10,
-      borderRadius: BorderRadius.circular(8),
-    ),
+    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(8)),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+        const SizedBox(width: 8),
+        Expanded(child: Text(value, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono'))),
       ],
     ),
   );

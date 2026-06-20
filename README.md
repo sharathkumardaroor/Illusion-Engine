@@ -1,42 +1,50 @@
-# Chronos (Software Archaeology Simulator)
+# 🚀 PROJECT BLUEPRINT: Chronos (Software Archaeology Simulator)
 
-Chronos is a desktop application designed to reverse-engineer believable, auditable Git histories for completed or sparse software projects. Unlike simple "commit spammers," Chronos uses a "Shadow Git" architecture and Reverse-Diff methodology to mathematically deconstruct a final codebase and rebuild it as a methodical, months-long enterprise development cycle.
+Chronos is a developer tool that reverse-engineers believable, auditable Git histories for completed software projects. Unlike simple "commit spammers," Chronos uses a non-destructive "Parallel Revamp" architecture. It mathematically deconstructs a final codebase and rebuilds it as a methodical, months-long enterprise development cycle, outputting a completely new, verified repository alongside the original.
 
-## 📄 Product Requirements Document (PRD): Chronos
-**Version:** 1.0
-**Status:** Approved for Development
+## 1. THE "PARALLEL REVAMP" WORKFLOW (Crucial Concept)
+Chronos must **never** alter, corrupt, or delete the user's original project files. The workflow is strictly non-destructive.
 
-### 1. Executive Summary
-It transforms a single "initial commit" into a compelling, flawed, and entirely believable project mythology.
+1.  **Source Selection:** The user selects their completed project directory.
+2.  **Deep Scan:** The engine scans the Source Directory for folder size, file count, and Git data.
+3.  **Configuration:** The user configures the desired timeline, AI settings, and realism injectors.
+4.  **Output Selection:** The user selects an Output Directory (where the revamped project will be created).
+5.  **Execution:**
+    *   Creates the Output Directory and initializes a "Shadow Repo" inside.
+    *   Generates dummy "skeleton" files and commits them over the simulated date range.
+    *   **The Overlay Step:** Copies the user's actual, final project files from the Source Directory into the Output Directory.
+    *   **Verification:** Runs `git status` in the Output Directory.
+6.  **Result:** Original folder remains untouched, new folder contains the project with a pristine Git history.
 
-### 2. Target Audience & Use Cases
-*   **Freelancers & Agencies:** Need to prove methodical development cycles and sprint histories to clients for completed deliverables.
-*   **Solo Developers:** Want to legitimize weekend hackathon projects or personal portfolios to look like sustained, professional efforts.
-*   **Security Researchers:** Need to generate realistic-looking repository histories for honeypots or testing environments.
-
-### 3. Technical Architecture (Zero JavaScript)
+## 2. TECHNICAL ARCHITECTURE (Zero JavaScript Allowed)
 *   **Frontend (UI):** Flutter (Dart) Desktop Application.
-*   **Backend (Engine):** Go (Golang) Compiled Binary.
+*   **Backend (Engine):** Go (Golang).
 *   **Communication (IPC):** JSON over STDIN/STDOUT (NDJSON logs).
 
-### 4. Core Engine Mechanics: The "Shadow Git" Method
-1.  **Snapshot:** Reads the user's target directory state.
-2.  **Shadow Init:** A temporary repo is created.
-3.  **Timeline Generation:** Dummy files and configs are committed with backdated timestamps.
-4.  **The Overlay Step:** Final project files are copied and committed.
-5.  **Replacement:** Replaces the user's `.git` folder with the Shadow Repo's `.git` folder.
+## 3. ENGINE CONFIGURATION (The "Brain")
+*   **Deterministic (Zero AI):** Pure Go logic and predefined templates.
+*   **API-Driven (Unified Cloud/Local AI):** Standard HTTP REST API calls to an OpenAI-compatible endpoint.
 
-### 5. Engine Configuration Modes
-*   **Deterministic:** Pure Go logic and predefined templates.
-*   **API-Driven:** OpenAI-compatible REST API calls (Pollinations, Ollama, OpenAI, etc.).
-
-### 6. Realism Injectors
+## 4. REALISM INJECTORS (The Illusion of Fallibility)
 *   AST Code Phasing
 *   Dependency Timeline Alignment
 *   Human Error Injection
 *   Branch & PR Simulation
 *   Chronobiometrics
-*   Phantom Team
+*   Focus Directives
+
+## 5. THE UI/UX: SINGLE-PAGE WORKSPACE
+A clean, dark-mode, developer-centric layout.
+- **Left Pane:** Configuration (Source/Output selection, Engine/Timeline config, Realism injectors).
+- **Right Pane:** Live State & Logs (State summary, Live terminal logs, Verification status).
+
+## 6. IPC PROTOCOL CONTRACT (Flutter <-> Go)
+NDJSON format:
+```json
+{"type":"log","level":"info","message":"Scanning source directory..."}
+{"type":"estimate","payload":{"commits":45,"branches":6,"runtime":"3m","size":"+2.4MB"}}
+{"type":"state","payload":{"status":"completed","before":{"commits":2},"after":{"commits":45},"verified":true,"output_path":"/path/to/output_dir","report_path":"/path/to/output_dir/project_summary.md"}}
+```
 
 ---
 
@@ -45,36 +53,10 @@ It transforms a single "initial commit" into a compelling, flawed, and entirely 
 ### Prerequisites
 - **Go** (1.24.3 or later)
 - **Flutter** (3.41.2 or later)
-- **Make** (optional, for automation)
+- **Make**
 
-### Platforms Supported
-- **Windows**
-- **Linux**
-
-### Building from Source
-
-#### Using Makefile (Linux/WSL/MacOS with Linux tools)
+### Building
 ```bash
 make all
 ```
-
-#### Manual Build
-
-**1. Build the Go Engine:**
-```bash
-cd engine
-go build -o chronos-engine main.go
-```
-*On Windows:*
-```bash
-go build -o chronos-engine.exe main.go
-```
-
-**2. Build the Flutter UI:**
-```bash
-cd ui
-flutter build linux # or windows
-```
-
-### Running the Application
-Ensure the `chronos-engine` binary is in the same directory as the UI executable or set the `CHRONOS_ENGINE_PATH` environment variable.
+Ensure the `chronos-engine` binary is available for the UI.

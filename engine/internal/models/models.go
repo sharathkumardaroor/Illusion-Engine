@@ -1,14 +1,15 @@
 package models
 
 type LogEvent struct {
-	Type    string `json:"type"`
-	Level   string `json:"level,omitempty"`
-	Message string `json:"message,omitempty"`
+	Type    string      `json:"type"`
+	Level   string      `json:"level,omitempty"`
+	Message string      `json:"message,omitempty"`
 	Payload interface{} `json:"payload,omitempty"`
 }
 
 type Config struct {
-	TargetDir      string `json:"targetDir"`
+	SourceDir      string `json:"sourceDir"`
+	OutputDir      string `json:"outputDir"`
 	UseAI          bool   `json:"useAI"`
 	Provider       string `json:"provider"`
 	BaseURL        string `json:"baseUrl"`
@@ -16,6 +17,7 @@ type Config struct {
 	Model          string `json:"model"`
 	StartDate      string `json:"startDate"`
 	EndDate        string `json:"endDate"`
+	Cadence        string `json:"cadence"` // Low/Med/High
 	FocusArea      string `json:"focusArea"`
 	StruggleArea   string `json:"struggleArea"`
 	HumanErrors    bool   `json:"humanErrors"`
@@ -36,5 +38,6 @@ type State struct {
 	Before     int    `json:"before"`
 	After      int    `json:"after"`
 	Verified   bool   `json:"verified"`
+	OutputPath string `json:"output_path"`
 	ReportPath string `json:"report_path"`
 }
