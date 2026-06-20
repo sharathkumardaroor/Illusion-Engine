@@ -8,8 +8,8 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: MyApp()));
 
     // Verify that our workspace is displayed.
-    expect(find.text('Configuration'), findsOneWidget);
-    expect(find.text('Summary & Logs'), findsOneWidget);
-    expect(find.text('Start Engine'), findsOneWidget);
+    expect(find.text('Chronos Workspace'), findsOneWidget);
+    expect(find.text('State & Logs'), findsOneWidget);
+    expect(find.text('Execute Chronos'), findsOneWidget);
   });
 }

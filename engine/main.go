@@ -5,61 +5,49 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/illusion-engine/chronos/engine/internal/engine"
+	"github.com/illusion-engine/chronos/engine/internal/models"
 )
-
-type LogMessage struct {
-	Type    string `json:"type"`
-	Level   string `json:"level"`
-	Message string `json:"message"`
-}
-
-type Command struct {
-	Action string          `json:"action"`
-	Params json.RawMessage `json:"params"`
-}
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
-	sendEvent(LogMessage{
+	sendEvent(models.LogEvent{
 		Type:    "log",
 		Level:   "info",
-		Message: "Chronos Engine started",
+		Message: "Chronos Engine ready",
 	})
 
 	for scanner.Scan() {
-		var cmd Command
-		err := json.Unmarshal(scanner.Bytes(), &cmd)
+		var msg struct {
+			Action string          `json:"action"`
+			Params json.RawMessage `json:"params"`
+		}
+		err := json.Unmarshal(scanner.Bytes(), &msg)
 		if err != nil {
-			sendEvent(LogMessage{
-				Type:    "log",
-				Level:   "error",
-				Message: fmt.Sprintf("Failed to parse command: %v", err),
-			})
 			continue
 		}
 
-		handleCommand(cmd)
-	}
+		switch msg.Action {
+		case "execute":
+			var cfg models.Config
+			json.Unmarshal(msg.Params, &cfg)
 
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "error reading standard input: %v\n", err)
-	}
-}
-
-func handleCommand(cmd Command) {
-	switch cmd.Action {
-	case "ping":
-		sendEvent(LogMessage{
-			Type:    "log",
-			Level:   "info",
-			Message: "pong",
-		})
-	default:
-		sendEvent(LogMessage{
-			Type:    "log",
-			Level:   "warn",
-			Message: fmt.Sprintf("Unknown command: %s", cmd.Action),
-		})
+			eng := engine.New(cfg)
+			if err := eng.Run(); err != nil {
+				sendEvent(models.LogEvent{
+					Type:    "log",
+					Level:   "error",
+					Message: fmt.Sprintf("Execution failed: %v", err),
+				})
+			}
+		case "ping":
+			sendEvent(models.LogEvent{
+				Type:    "log",
+				Level:   "info",
+				Message: "pong",
+			})
+		}
 	}
 }
 
