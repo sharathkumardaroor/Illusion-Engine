@@ -26,11 +26,24 @@ type Config struct {
 	Branches       bool   `json:"branches"`
 }
 
+type ScanResult struct {
+	IsGit        bool   `json:"isGit"`
+	FileCount    int    `json:"fileCount"`
+	FolderCount  int    `json:"folderCount"`
+	SizeMB       float64 `json:"sizeMb"`
+	CommitCount  int    `json:"commitCount"`
+	FirstCommit  string `json:"firstCommit"`
+	LatestCommit string `json:"latestCommit"`
+	BranchCount  int    `json:"branchCount"`
+}
+
 type Estimate struct {
-	Commits  int    `json:"commits"`
-	Branches int    `json:"branches"`
-	Runtime  string `json:"runtime"`
-	Size     string `json:"size"`
+	Commits      int    `json:"commits"`
+	Branches     int    `json:"branches"`
+	PullRequests int    `json:"pullRequests"`
+	Versions     int    `json:"versions"`
+	Runtime      string `json:"runtime"`
+	SizeIncrease string `json:"sizeIncrease"`
 }
 
 type State struct {

@@ -32,6 +32,41 @@ func main() {
 		}
 
 		switch msg.Action {
+		case "scan":
+			var params struct {
+				Path string `json:"path"`
+			}
+			json.Unmarshal(msg.Params, &params)
+			eng := engine.New(models.Config{})
+			res, err := eng.Scan(params.Path)
+			if err != nil {
+				sendEvent(models.LogEvent{Type: "log", Level: "error", Message: fmt.Sprintf("Scan failed: %v", err)})
+			} else {
+				sendEvent(models.LogEvent{Type: "scan_result", Payload: res})
+			}
+
+		case "estimate":
+			var cfg models.Config
+			json.Unmarshal(msg.Params, &cfg)
+			eng := engine.New(cfg)
+			scan, _ := eng.Scan(cfg.SourceDir)
+
+			// Dynamic calculation based on scan
+			commits := 20
+			if scan.CommitCount > 0 {
+				commits = int(float64(scan.CommitCount) * 1.2)
+			}
+
+			est := models.Estimate{
+				Commits:      commits,
+				Branches:     3,
+				PullRequests: 5,
+				Versions:     1,
+				Runtime:      fmt.Sprintf("%ds", commits/2),
+				SizeIncrease: fmt.Sprintf("+%.1fMB", scan.SizeMB*0.1),
+			}
+			sendEvent(models.LogEvent{Type: "estimate", Payload: est})
+
 		case "execute":
 			var cfg models.Config
 			json.Unmarshal(msg.Params, &cfg)
@@ -57,7 +92,6 @@ func main() {
 				sendEvent(models.LogEvent{Type: "log", Level: "error", Message: "Failed to create test source"})
 				continue
 			}
-			// Create dummy project files
 			os.WriteFile(filepath.Join(tempDir, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644)
 			os.WriteFile(filepath.Join(tempDir, "README.md"), []byte("# Test Project\n"), 0644)
 			os.Mkdir(filepath.Join(tempDir, "pkg"), 0755)
