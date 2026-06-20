@@ -7,10 +7,17 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'engine_provider.g.dart';
 
-@riverpod
+@Riverpod(keepAlive: true)
 class EngineState extends _$EngineState {
   @override
-  Map<String, dynamic> build() => {
+  Map<String, dynamic> build() {
+    ref.onDispose(() {
+      _process?.kill();
+      _stdoutSub?.cancel();
+      _stderrSub?.cancel();
+    });
+
+    return {
     'logs': <String>[],
     'status': 'idle',
     'verified': false,
@@ -22,6 +29,7 @@ class EngineState extends _$EngineState {
     'scanResult': null,
     'estimate': null,
   };
+  }
 
   Process? _process;
   StreamSubscription? _stdoutSub;
