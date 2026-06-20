@@ -19,6 +19,8 @@ class EngineState extends _$EngineState {
     'outputPath': '',
     'reportPath': '',
     'testSourcePath': null,
+    'scanResult': null,
+    'estimate': null,
   };
 
   Process? _process;
@@ -67,6 +69,10 @@ class EngineState extends _$EngineState {
             'outputPath': payload['output_path'] ?? '',
             'reportPath': payload['report_path'] ?? '',
           };
+        } else if (json['type'] == 'scan_result') {
+          state = {...state, 'scanResult': json['payload']};
+        } else if (json['type'] == 'estimate') {
+          state = {...state, 'estimate': json['payload']};
         }
       } catch (e) {
         addLog('Raw: $line');
@@ -94,6 +100,8 @@ class EngineState extends _$EngineState {
       }
 
       final source = state['testSourcePath'];
+      await scan(source);
+
       final output = '${source}_revamped';
 
       addLog('Executing simulation: $source -> $output');
@@ -109,12 +117,37 @@ class EngineState extends _$EngineState {
     }
   }
 
+  Future<void> scan(String path) async {
+    try {
+      await _ensureProcess();
+      _process!.stdin.writeln(jsonEncode({
+        'action': 'scan',
+        'params': {'path': path},
+      }));
+    } catch (e) {
+      addLog('Scan failed: $e');
+    }
+  }
+
+  Future<void> estimate(Map<String, dynamic> config) async {
+    try {
+      await _ensureProcess();
+      _process!.stdin.writeln(jsonEncode({
+        'action': 'estimate',
+        'params': config,
+      }));
+    } catch (e) {
+      addLog('Estimate failed: $e');
+    }
+  }
+
   Future<void> execute(Map<String, dynamic> config) async {
     if (_process != null && state['status'] != 'preparing-test') {
-      _process!.kill();
-      _process = null;
-      await _stdoutSub?.cancel();
-      await _stderrSub?.cancel();
+      // Keep process alive if we are just switching from idle to running
+      // But if it's already running a different execution, we might need to restart it?
+      // Actually, the engine is designed to handle multiple commands now.
+      // However, execute usually implies a fresh start for the engine's internal state if it had any.
+      // But my engine main.go loop handles multiple commands.
     }
 
     state = {

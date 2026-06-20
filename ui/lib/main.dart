@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import 'engine_provider.dart';
 
 void main() {
@@ -36,6 +37,8 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
   String? sourceDir;
   String? outputDir;
   String engineMode = 'Deterministic';
+  DateTime startDate = DateTime.now().subtract(const Duration(days: 90));
+  DateTime endDate = DateTime.now();
 
   final TextEditingController baseUrlController = TextEditingController();
   final TextEditingController apiKeyController = TextEditingController();
@@ -94,10 +97,16 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                             sourceDir = result;
                             outputDir ??= '${result}_chronos';
                           });
+                          ref.read(engineStateProvider.notifier).scan(result);
                         }
                       },
                       placeholder: 'Select source project folder',
                     ),
+
+                    if (engineState['scanResult'] != null) ...[
+                      const SizedBox(height: 12),
+                      _scanResultCard(engineState['scanResult']),
+                    ],
 
                     const SizedBox(height: 24),
                     _sectionTitle('Output Directory'),
@@ -144,6 +153,34 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                     ],
 
                     const SizedBox(height: 24),
+                    _sectionTitle('Timeline Configuration'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final picked = await showDatePicker(context: context, initialDate: startDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
+                              if (picked != null) setState(() => startDate = picked);
+                            },
+                            icon: const Icon(Icons.calendar_today),
+                            label: Text('Start: ${DateFormat('yyyy-MM-dd').format(startDate)}'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              final picked = await showDatePicker(context: context, initialDate: endDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
+                              if (picked != null) setState(() => endDate = picked);
+                            },
+                            icon: const Icon(Icons.calendar_today),
+                            label: Text('End: ${DateFormat('yyyy-MM-dd').format(endDate)}'),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
                     _sectionTitle('Narrative Focus'),
                     TextField(controller: focusAreaController, decoration: const InputDecoration(labelText: 'Focus Area (e.g. backend refactor)')),
                     TextField(controller: struggleAreaController, decoration: const InputDecoration(labelText: 'Struggle Area (e.g. race conditions)')),
@@ -155,7 +192,13 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                     CheckboxListTile(title: const Text('Dependency Alignment'), value: depAlignment, onChanged: (val) => setState(() => depAlignment = val!)),
                     CheckboxListTile(title: const Text('Branch Simulation'), value: branches, onChanged: (val) => setState(() => branches = val!)),
 
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 24),
+                    if (engineState['estimate'] != null) ...[
+                      _estimateCard(engineState['estimate']),
+                      const SizedBox(height: 24),
+                    ],
+
+                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -172,6 +215,8 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                             'model': modelController.text,
                             'focusArea': focusAreaController.text,
                             'struggleArea': struggleAreaController.text,
+                            'startDate': startDate.toIso8601String(),
+                            'endDate': endDate.toIso8601String(),
                             'humanErrors': humanErrors,
                             'astPhasing': astPhasing,
                             'depAlignment': depAlignment,
@@ -181,6 +226,20 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                         child: Text(isRunning ? 'Executing Revamp...' : 'Execute Chronos'),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    if (sourceDir != null && !isRunning)
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                             ref.read(engineStateProvider.notifier).estimate({
+                                'sourceDir': sourceDir,
+                                'useAI': engineMode != 'Deterministic',
+                                'branches': branches,
+                             });
+                          },
+                          child: const Text('Refresh Estimate'),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -268,5 +327,78 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
         Expanded(child: Text(value, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono'))),
       ],
     ),
+  );
+
+  Widget _scanResultCard(Map<String, dynamic> scan) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: Colors.blueGrey.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.blueAccent.withOpacity(0.3))),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.info_outline, size: 16, color: Colors.blueAccent),
+            const SizedBox(width: 8),
+            Text('Project Scan', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent.shade100)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _scanRow('Files/Folders', '${scan['file_count']} / ${scan['folder_count']}'),
+        _scanRow('Total Size', '${(scan['size_mb'] as double).toStringAsFixed(2)} MB'),
+        if (scan['is_git']) ...[
+          const Divider(height: 20),
+          _scanRow('Git Commits', '${scan['commit_count']}'),
+          _scanRow('Branches', '${scan['branch_count']}'),
+          _scanRow('First Commit', '${scan['first_commit']}'),
+          _scanRow('Latest Commit', '${scan['latest_commit']}'),
+        ],
+      ],
+    ),
+  );
+
+  Widget _scanRow(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+      ],
+    ),
+  );
+
+  Widget _estimateCard(Map<String, dynamic> est) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: Colors.orange.withOpacity(0.05), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.orange.withOpacity(0.3))),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.analytics_outlined, size: 16, color: Colors.orange),
+            const SizedBox(width: 8),
+            Text('Revamp Estimate', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade100)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _estItem(Icons.history, '${est['commits']}', 'Commits'),
+            _estItem(Icons.account_tree, '${est['branches']}', 'Branches'),
+            _estItem(Icons.timer, '${est['runtime']}', 'Time'),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _estItem(IconData icon, String val, String label) => Column(
+    children: [
+      Icon(icon, size: 20, color: Colors.white54),
+      const SizedBox(height: 4),
+      Text(val, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      Text(label, style: const TextStyle(fontSize: 10, color: Colors.white54)),
+    ],
   );
 }
