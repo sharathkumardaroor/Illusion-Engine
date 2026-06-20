@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'engine_provider.dart';
 
 void main() {
@@ -24,85 +25,165 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class ChronosWorkspace extends ConsumerWidget {
+class ChronosWorkspace extends ConsumerStatefulWidget {
   const ChronosWorkspace({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final logs = ref.watch(engineLogsProvider);
+  ConsumerState<ChronosWorkspace> createState() => _ChronosWorkspaceState();
+}
+
+class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
+  String? targetDir;
+  bool useAI = false;
+  final TextEditingController baseUrlController = TextEditingController(text: 'https://text.pollinations.ai/');
+  final TextEditingController modelController = TextEditingController(text: 'gpt-4o');
+  final TextEditingController focusAreaController = TextEditingController();
+  final TextEditingController struggleAreaController = TextEditingController();
+
+  bool humanErrors = true;
+  bool astPhasing = true;
+  bool depAlignment = true;
+  bool branches = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final engineState = ref.watch(engineStateProvider);
+    final logs = engineState['logs'] as List<String>;
 
     return Scaffold(
       body: Row(
         children: [
           // Left Pane: Configuration
           Expanded(
-            flex: 1,
+            flex: 3,
             child: Container(
-              color: Theme.of(context).colorScheme.surfaceVariant,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Configuration',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 20),
-                  const Text('Engine Settings'),
-                  const Spacer(),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          ref.read(engineLogsProvider.notifier).startEngine();
-                        },
-                        child: const Text('Start Engine'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          ref.read(engineLogsProvider.notifier).sendCommand('ping');
-                        },
-                        child: const Text('Ping'),
-                      ),
+              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Chronos Workspace', style: Theme.of(context).textTheme.headlineMedium),
+                    const SizedBox(height: 32),
+
+                    _sectionTitle('Target Directory'),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(targetDir ?? 'No directory selected', overflow: TextOverflow.ellipsis),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: () async {
+                            String? result = await FilePicker.platform.getDirectoryPath();
+                            if (result != null) setState(() => targetDir = result);
+                          },
+                          child: const Text('Pick Folder'),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+                    _sectionTitle('Engine Config'),
+                    SwitchListTile(
+                      title: const Text('Use AI Generation'),
+                      value: useAI,
+                      onChanged: (val) => setState(() => useAI = val),
+                    ),
+                    if (useAI) ...[
+                      TextField(controller: baseUrlController, decoration: const InputDecoration(labelText: 'Base URL')),
+                      TextField(controller: modelController, decoration: const InputDecoration(labelText: 'Model Name')),
                     ],
-                  ),
-                ],
+
+                    const SizedBox(height: 24),
+                    _sectionTitle('Narrative Focus'),
+                    TextField(controller: focusAreaController, decoration: const InputDecoration(labelText: 'Focus Area (e.g. backend refactor)')),
+                    TextField(controller: struggleAreaController, decoration: const InputDecoration(labelText: 'Struggle Area (e.g. race conditions)')),
+
+                    const SizedBox(height: 24),
+                    _sectionTitle('Realism Injectors'),
+                    CheckboxListTile(title: const Text('Human Error Injection'), value: humanErrors, onChanged: (val) => setState(() => humanErrors = val!)),
+                    CheckboxListTile(title: const Text('AST Code Phasing'), value: astPhasing, onChanged: (val) => setState(() => astPhasing = val!)),
+                    CheckboxListTile(title: const Text('Dependency Alignment'), value: depAlignment, onChanged: (val) => setState(() => depAlignment = val!)),
+                    CheckboxListTile(title: const Text('Branch Simulation'), value: branches, onChanged: (val) => setState(() => branches = val!)),
+
+                    const SizedBox(height: 40),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
+                        onPressed: targetDir == null || engineState['status'] == 'running' ? null : () {
+                          ref.read(engineStateProvider.notifier).execute({
+                            'targetDir': targetDir,
+                            'useAI': useAI,
+                            'baseUrl': baseUrlController.text,
+                            'model': modelController.text,
+                            'focusArea': focusAreaController.text,
+                            'struggleArea': struggleAreaController.text,
+                            'humanErrors': humanErrors,
+                            'astPhasing': astPhasing,
+                            'depAlignment': depAlignment,
+                            'branches': branches,
+                          });
+                        },
+                        child: Text(engineState['status'] == 'running' ? 'Executing...' : 'Execute Chronos'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
           const VerticalDivider(width: 1),
-          // Right Pane: Logs & Status
+          // Right Pane: Live State & Logs
           Expanded(
             flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
+            child: Container(
+              padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Summary & Logs',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 20),
+                  Text('State & Logs', style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 24),
+                  _stateCard('Commits', '${engineState['commitsBefore']} -> ${engineState['commitsAfter']}'),
+                  const SizedBox(height: 12),
+                  _stateCard('Status', engineState['status'].toString().toUpperCase()),
+                  if (engineState['verified'] == true) ...[
+                    const SizedBox(height: 12),
+                    const Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text('Verification Clean', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  const Text('Live Engine Log', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
                   Expanded(
                     child: Container(
-                      color: Colors.black,
                       width: double.infinity,
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                       child: ListView.builder(
                         itemCount: logs.length,
-                        itemBuilder: (context, index) {
-                          return Text(
-                            logs[index],
-                            style: const TextStyle(
-                              color: Colors.greenAccent,
-                              fontFamily: 'JetBrains Mono',
-                              fontSize: 12,
-                            ),
-                          );
-                        },
+                        itemBuilder: (context, index) => Text(
+                          logs[index],
+                          style: const TextStyle(color: Colors.greenAccent, fontFamily: 'JetBrains Mono', fontSize: 11),
+                        ),
                       ),
                     ),
                   ),
@@ -114,4 +195,21 @@ class ChronosWorkspace extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _sectionTitle(String title) => Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent));
+
+  Widget _stateCard(String label, String value) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    decoration: BoxDecoration(
+      color: Colors.white10,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'JetBrains Mono')),
+      ],
+    ),
+  );
 }
