@@ -42,10 +42,15 @@ class EngineState extends _$EngineState {
     _stdoutSub = null;
     _stderrSub = null;
 
+    // Reset state for new execution
     state = {
-      ...state,
       'logs': <String>[],
       'status': 'running',
+      'verified': false,
+      'commitsBefore': 0,
+      'commitsAfter': 0,
+      'outputPath': '',
+      'reportPath': '',
     };
 
     if (kIsWeb) {
@@ -76,10 +81,11 @@ class EngineState extends _$EngineState {
     }
 
     try {
-      _process = await Process.start(executable, []);
+      final process = await Process.start(executable, []);
+      _process = process;
       addLog('Engine started: $executable');
 
-      _stdoutSub = _process!.stdout
+      _stdoutSub = process.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
@@ -107,23 +113,33 @@ class EngineState extends _$EngineState {
         }
       });
 
-      _stderrSub = _process!.stderr
+      _stderrSub = process.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
         addLog('STDERR: $line');
       });
 
-      _process!.stdin.writeln(jsonEncode({
+      process.stdin.writeln(jsonEncode({
         'action': 'execute',
         'params': config,
       }));
       // Close stdin to signal end of commands and allow engine to exit after task
-      await _process!.stdin.close();
+      await process.stdin.close();
 
-      _process!.exitCode.then((code) {
+      process.exitCode.then((code) {
+        if (_process != process) return; // Ignore exit of old processes
+
         addLog('Engine exited with code $code');
         _process = null;
+
+        // Ensure status is updated if it was still running (e.g. crash)
+        if (state['status'] == 'running') {
+          state = {
+            ...state,
+            'status': code == 0 ? 'completed' : 'error',
+          };
+        }
       });
     } catch (e) {
       addLog('Failed to start engine: $e');
