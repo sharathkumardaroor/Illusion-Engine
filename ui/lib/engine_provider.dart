@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -20,6 +21,8 @@ class EngineState extends _$EngineState {
   };
 
   Process? _process;
+  StreamSubscription? _stdoutSub;
+  StreamSubscription? _stderrSub;
 
   void addLog(String log) {
     state = {
@@ -29,11 +32,15 @@ class EngineState extends _$EngineState {
   }
 
   Future<void> execute(Map<String, dynamic> config) async {
-    // Kill existing process if running
+    // Kill existing process and cancel subscriptions if running
     if (_process != null) {
       _process!.kill();
       _process = null;
     }
+    await _stdoutSub?.cancel();
+    await _stderrSub?.cancel();
+    _stdoutSub = null;
+    _stderrSub = null;
 
     state = {
       ...state,
@@ -72,7 +79,7 @@ class EngineState extends _$EngineState {
       _process = await Process.start(executable, []);
       addLog('Engine started: $executable');
 
-      _process!.stdout
+      _stdoutSub = _process!.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
@@ -98,6 +105,13 @@ class EngineState extends _$EngineState {
         } catch (e) {
           addLog('Raw: $line');
         }
+      });
+
+      _stderrSub = _process!.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((line) {
+        addLog('STDERR: $line');
       });
 
       _process!.stdin.writeln(jsonEncode({

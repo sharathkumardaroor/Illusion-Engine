@@ -34,8 +34,13 @@ func (e *Engine) Run() error {
 	if src == out {
 		return fmt.Errorf("source and output directories cannot be the same")
 	}
-	if strings.HasPrefix(out, src+string(os.PathSeparator)) {
+
+	sep := string(os.PathSeparator)
+	if strings.HasPrefix(out, src+sep) {
 		return fmt.Errorf("output directory cannot be inside the source directory")
+	}
+	if strings.HasPrefix(src, out+sep) {
+		return fmt.Errorf("source directory cannot be inside the output directory")
 	}
 
 	e.sendLog("info", "Scanning source directory...")
