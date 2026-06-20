@@ -40,6 +40,13 @@ func main() {
 					Level:   "error",
 					Message: fmt.Sprintf("Execution failed: %v", err),
 				})
+				// Send failure state to UI to unlock button
+				sendEvent(models.LogEvent{
+					Type: "state",
+					Payload: models.State{
+						Status: "error",
+					},
+				})
 			}
 		case "ping":
 			sendEvent(models.LogEvent{

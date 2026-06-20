@@ -29,6 +29,12 @@ class EngineState extends _$EngineState {
   }
 
   Future<void> execute(Map<String, dynamic> config) async {
+    // Kill existing process if running
+    if (_process != null) {
+      _process!.kill();
+      _process = null;
+    }
+
     state = {
       ...state,
       'logs': <String>[],
@@ -79,11 +85,11 @@ class EngineState extends _$EngineState {
             state = {
               ...state,
               'status': payload['status'],
-              'verified': payload['verified'],
-              'commitsBefore': payload['before'],
-              'commitsAfter': payload['after'],
-              'outputPath': payload['output_path'],
-              'reportPath': payload['report_path'],
+              'verified': payload['verified'] ?? false,
+              'commitsBefore': payload['before'] ?? 0,
+              'commitsAfter': payload['after'] ?? 0,
+              'outputPath': payload['output_path'] ?? '',
+              'reportPath': payload['report_path'] ?? '',
             };
           } else if (json['type'] == 'estimate') {
              final payload = json['payload'];
@@ -98,6 +104,8 @@ class EngineState extends _$EngineState {
         'action': 'execute',
         'params': config,
       }));
+      // Close stdin to signal end of commands and allow engine to exit after task
+      await _process!.stdin.close();
 
       _process!.exitCode.then((code) {
         addLog('Engine exited with code $code');

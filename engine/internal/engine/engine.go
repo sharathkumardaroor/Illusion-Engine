@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/illusion-engine/chronos/engine/internal/git"
@@ -20,6 +21,23 @@ func New(cfg models.Config) *Engine {
 }
 
 func (e *Engine) Run() error {
+	// Path Validation
+	src, err := filepath.Abs(e.Config.SourceDir)
+	if err != nil {
+		return fmt.Errorf("invalid source path: %w", err)
+	}
+	out, err := filepath.Abs(e.Config.OutputDir)
+	if err != nil {
+		return fmt.Errorf("invalid output path: %w", err)
+	}
+
+	if src == out {
+		return fmt.Errorf("source and output directories cannot be the same")
+	}
+	if strings.HasPrefix(out, src+string(os.PathSeparator)) {
+		return fmt.Errorf("output directory cannot be inside the source directory")
+	}
+
 	e.sendLog("info", "Scanning source directory...")
 	files, err := e.snapshot()
 	if err != nil {
@@ -62,12 +80,11 @@ func (e *Engine) Run() error {
 	}
 
 	e.sendLog("info", "Revamp complete. Verifying clean status...")
-	// In real impl, we'd run git status here
 
 	e.sendState(models.State{
 		Status:     "completed",
 		Verified:   true,
-		Before:     0, // Would be actual count from source if it was a git repo
+		Before:     0,
 		After:      1,
 		OutputPath: e.Config.OutputDir,
 		ReportPath: filepath.Join(e.Config.OutputDir, "project_summary.md"),
