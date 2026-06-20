@@ -18,6 +18,7 @@ class EngineState extends _$EngineState {
     'commitsAfter': 0,
     'outputPath': '',
     'reportPath': '',
+    'testSourcePath': null,
   };
 
   Process? _process;
@@ -31,20 +32,94 @@ class EngineState extends _$EngineState {
     };
   }
 
+  Future<void> _ensureProcess() async {
+    if (_process != null) return;
+
+    String? executable = Platform.environment['CHRONOS_ENGINE_PATH'];
+    if (executable == null) {
+      final localPath = './chronos-engine';
+      final relativePath = '../engine/chronos-engine';
+      if (File(localPath).existsSync()) executable = localPath;
+      else if (File(relativePath).existsSync()) executable = relativePath;
+      else if (File('$localPath.exe').existsSync()) executable = '$localPath.exe';
+      else if (File('$relativePath.exe').existsSync()) executable = '$relativePath.exe';
+    }
+
+    if (executable == null) throw Exception('Engine binary not found');
+
+    _process = await Process.start(executable, []);
+    _stdoutSub = _process!.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+      try {
+        final json = jsonDecode(line);
+        if (json['type'] == 'log') {
+          addLog('[${json['level']}] ${json['message']}');
+          if (json['payload'] != null && json['payload']['path'] != null) {
+            state = {...state, 'testSourcePath': json['payload']['path']};
+          }
+        } else if (json['type'] == 'state') {
+          final payload = json['payload'];
+          state = {
+            ...state,
+            'status': payload['status'],
+            'verified': payload['verified'] ?? false,
+            'commitsBefore': payload['before'] ?? 0,
+            'commitsAfter': payload['after'] ?? 0,
+            'outputPath': payload['output_path'] ?? '',
+            'reportPath': payload['report_path'] ?? '',
+          };
+        }
+      } catch (e) {
+        addLog('Raw: $line');
+      }
+    });
+
+    _stderrSub = _process!.stderr.transform(utf8.decoder).transform(const LineSplitter()).listen((line) => addLog('STDERR: $line'));
+
+    _process!.exitCode.then((code) {
+      addLog('Engine exited with code $code');
+      _process = null;
+      if (state['status'] == 'running') state = {...state, 'status': 'error'};
+    });
+  }
+
+  Future<void> runTestSimulation() async {
+    state = {...state, 'status': 'preparing-test', 'logs': <String>[]};
+    try {
+      await _ensureProcess();
+      _process!.stdin.writeln(jsonEncode({'action': 'test-prep', 'params': {}}));
+
+      // Wait for testSourcePath to be populated
+      while (state['testSourcePath'] == null) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
+      final source = state['testSourcePath'];
+      final output = '${source}_revamped';
+
+      addLog('Executing simulation: $source -> $output');
+      execute({
+        'sourceDir': source,
+        'outputDir': output,
+        'useAI': false,
+        'engineMode': 'Deterministic',
+      });
+    } catch (e) {
+      addLog('Test Prep Failed: $e');
+      state = {...state, 'status': 'error'};
+    }
+  }
+
   Future<void> execute(Map<String, dynamic> config) async {
-    // Kill existing process and cancel subscriptions if running
-    if (_process != null) {
+    if (_process != null && state['status'] != 'preparing-test') {
       _process!.kill();
       _process = null;
+      await _stdoutSub?.cancel();
+      await _stderrSub?.cancel();
     }
-    await _stdoutSub?.cancel();
-    await _stderrSub?.cancel();
-    _stdoutSub = null;
-    _stderrSub = null;
 
-    // Reset state for new execution
     state = {
-      'logs': <String>[],
+      ...state,
+      'logs': state['status'] == 'preparing-test' ? state['logs'] : <String>[],
       'status': 'running',
       'verified': false,
       'commitsBefore': 0,
@@ -59,88 +134,13 @@ class EngineState extends _$EngineState {
       return;
     }
 
-    String? executable = Platform.environment['CHRONOS_ENGINE_PATH'];
-    if (executable == null) {
-      final localPath = './chronos-engine';
-      final relativePath = '../engine/chronos-engine';
-      if (File(localPath).existsSync()) {
-        executable = localPath;
-      } else if (File(relativePath).existsSync()) {
-        executable = relativePath;
-      } else if (File('$localPath.exe').existsSync()) {
-        executable = '$localPath.exe';
-      } else if (File('$relativePath.exe').existsSync()) {
-        executable = '$relativePath.exe';
-      }
-    }
-
-    if (executable == null) {
-      addLog('Error: Engine binary not found.');
-      state = {...state, 'status': 'error'};
-      return;
-    }
-
     try {
-      final process = await Process.start(executable, []);
-      _process = process;
-      addLog('Engine started: $executable');
-
-      _stdoutSub = process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen((line) {
-        try {
-          final json = jsonDecode(line);
-          if (json['type'] == 'log') {
-            addLog('[${json['level']}] ${json['message']}');
-          } else if (json['type'] == 'state') {
-            final payload = json['payload'];
-            state = {
-              ...state,
-              'status': payload['status'],
-              'verified': payload['verified'] ?? false,
-              'commitsBefore': payload['before'] ?? 0,
-              'commitsAfter': payload['after'] ?? 0,
-              'outputPath': payload['output_path'] ?? '',
-              'reportPath': payload['report_path'] ?? '',
-            };
-          } else if (json['type'] == 'estimate') {
-             final payload = json['payload'];
-             addLog('Estimate: ${payload['commits']} commits, ${payload['runtime']} runtime');
-          }
-        } catch (e) {
-          addLog('Raw: $line');
-        }
-      });
-
-      _stderrSub = process.stderr
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen((line) {
-        addLog('STDERR: $line');
-      });
-
-      process.stdin.writeln(jsonEncode({
+      await _ensureProcess();
+      _process!.stdin.writeln(jsonEncode({
         'action': 'execute',
         'params': config,
       }));
-      // Close stdin to signal end of commands and allow engine to exit after task
-      await process.stdin.close();
-
-      process.exitCode.then((code) {
-        if (_process != process) return; // Ignore exit of old processes
-
-        addLog('Engine exited with code $code');
-        _process = null;
-
-        // Ensure status is updated if it was still running (e.g. crash)
-        if (state['status'] == 'running') {
-          state = {
-            ...state,
-            'status': code == 0 ? 'completed' : 'error',
-          };
-        }
-      });
+      await _process!.stdin.close();
     } catch (e) {
       addLog('Failed to start engine: $e');
       state = {...state, 'status': 'error'};

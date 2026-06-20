@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/illusion-engine/chronos/engine/internal/engine"
 	"github.com/illusion-engine/chronos/engine/internal/models"
@@ -42,7 +43,6 @@ func main() {
 					Level:   "error",
 					Message: fmt.Sprintf("Execution failed: %v", err),
 				})
-				// Send failure state to UI to unlock button
 				sendEvent(models.LogEvent{
 					Type: "state",
 					Payload: models.State{
@@ -51,6 +51,24 @@ func main() {
 				})
 				exitCode = 1
 			}
+		case "test-prep":
+			tempDir, err := os.MkdirTemp("", "chronos-test-source-*")
+			if err != nil {
+				sendEvent(models.LogEvent{Type: "log", Level: "error", Message: "Failed to create test source"})
+				continue
+			}
+			// Create dummy project files
+			os.WriteFile(filepath.Join(tempDir, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644)
+			os.WriteFile(filepath.Join(tempDir, "README.md"), []byte("# Test Project\n"), 0644)
+			os.Mkdir(filepath.Join(tempDir, "pkg"), 0755)
+			os.WriteFile(filepath.Join(tempDir, "pkg", "utils.go"), []byte("package pkg\n"), 0644)
+
+			sendEvent(models.LogEvent{
+				Type: "log",
+				Level: "info",
+				Message: fmt.Sprintf("Test source prepared at %s", tempDir),
+				Payload: map[string]string{"path": tempDir},
+			})
 		case "ping":
 			sendEvent(models.LogEvent{
 				Type:    "log",

@@ -52,6 +52,7 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
   Widget build(BuildContext context) {
     final engineState = ref.watch(engineStateProvider);
     final logs = engineState['logs'] as List<String>;
+    final isRunning = engineState['status'] == 'running' || engineState['status'] == 'preparing-test';
 
     return Scaffold(
       body: Row(
@@ -66,7 +67,20 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Chronos Workspace', style: Theme.of(context).textTheme.headlineMedium),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: [
+                        Text('Chronos Workspace', style: Theme.of(context).textTheme.headlineMedium),
+                        OutlinedButton.icon(
+                          onPressed: isRunning ? null : () => ref.read(engineStateProvider.notifier).runTestSimulation(),
+                          icon: const Icon(Icons.science),
+                          label: const Text('Run Test Simulation'),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 32),
 
                     _sectionTitle('Source Project Directory'),
@@ -147,7 +161,7 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                       height: 50,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
-                        onPressed: sourceDir == null || outputDir == null || engineState['status'] == 'running' ? null : () {
+                        onPressed: sourceDir == null || outputDir == null || isRunning ? null : () {
                           ref.read(engineStateProvider.notifier).execute({
                             'sourceDir': sourceDir,
                             'outputDir': outputDir,
@@ -164,7 +178,7 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                             'branches': branches,
                           });
                         },
-                        child: Text(engineState['status'] == 'running' ? 'Executing Revamp...' : 'Execute Chronos'),
+                        child: Text(isRunning ? 'Executing Revamp...' : 'Execute Chronos'),
                       ),
                     ),
                   ],
