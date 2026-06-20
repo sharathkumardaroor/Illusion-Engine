@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -61,10 +62,15 @@ func (c *Client) chat(prompt string) (string, error) {
 
 	url := c.BaseURL
 	if url == "" {
-		url = "https://text.pollinations.ai/v1/chat/completions" // Default fallback
-	}
-	if url[len(url)-1] != '/' && !bytes.HasSuffix([]byte(url), []byte("/chat/completions")) {
-		// Basic normalization
+		url = "https://text.pollinations.ai/v1/chat/completions"
+	} else {
+		// URL Normalization
+		if !strings.HasSuffix(url, "/chat/completions") {
+			if !strings.HasSuffix(url, "/") {
+				url += "/"
+			}
+			url += "chat/completions"
+		}
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))

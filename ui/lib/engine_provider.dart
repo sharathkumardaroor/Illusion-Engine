@@ -173,7 +173,6 @@ class EngineState extends _$EngineState {
         'action': 'execute',
         'params': config,
       }));
-      await _process!.stdin.close();
     } catch (e) {
       addLog('Failed to start engine: $e');
       state = {...state, 'status': 'error'};

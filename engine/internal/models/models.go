@@ -17,7 +17,7 @@ type Config struct {
 	Model          string `json:"model"`
 	StartDate      string `json:"startDate"`
 	EndDate        string `json:"endDate"`
-	Cadence        string `json:"cadence"` // Low/Med/High
+	Cadence        string `json:"cadence"` // Low/Medium/High
 	FocusArea      string `json:"focusArea"`
 	StruggleArea   string `json:"struggleArea"`
 	HumanErrors    bool   `json:"humanErrors"`
@@ -27,14 +27,14 @@ type Config struct {
 }
 
 type ScanResult struct {
-	IsGit        bool   `json:"isGit"`
-	FileCount    int    `json:"fileCount"`
-	FolderCount  int    `json:"folderCount"`
+	IsGit        bool    `json:"isGit"`
+	FileCount    int     `json:"fileCount"`
+	FolderCount  int     `json:"folderCount"`
 	SizeMB       float64 `json:"sizeMb"`
-	CommitCount  int    `json:"commitCount"`
-	FirstCommit  string `json:"firstCommit"`
-	LatestCommit string `json:"latestCommit"`
-	BranchCount  int    `json:"branchCount"`
+	CommitCount  int     `json:"commitCount"`
+	FirstCommit  string  `json:"firstCommit"`
+	LatestCommit string  `json:"latestCommit"`
+	BranchCount  int     `json:"branchCount"`
 }
 
 type Estimate struct {
