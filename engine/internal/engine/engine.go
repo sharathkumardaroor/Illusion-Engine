@@ -43,6 +43,15 @@ func (e *Engine) Run() error {
 		return fmt.Errorf("source directory cannot be inside the output directory")
 	}
 
+	// Success flag for cleanup
+	success := false
+	defer func() {
+		if !success {
+			e.sendLog("warn", "Execution failed. Cleaning up partial output...")
+			os.RemoveAll(e.Config.OutputDir)
+		}
+	}()
+
 	e.sendLog("info", "Scanning source directory...")
 	files, err := e.snapshot()
 	if err != nil {
@@ -85,6 +94,8 @@ func (e *Engine) Run() error {
 	}
 
 	e.sendLog("info", "Revamp complete. Verifying clean status...")
+
+	success = true
 
 	e.sendState(models.State{
 		Status:     "completed",

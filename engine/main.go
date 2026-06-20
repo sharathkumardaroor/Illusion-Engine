@@ -18,6 +18,8 @@ func main() {
 		Message: "Chronos Engine ready",
 	})
 
+	exitCode := 0
+
 	for scanner.Scan() {
 		var msg struct {
 			Action string          `json:"action"`
@@ -47,6 +49,7 @@ func main() {
 						Status: "error",
 					},
 				})
+				exitCode = 1
 			}
 		case "ping":
 			sendEvent(models.LogEvent{
@@ -56,6 +59,13 @@ func main() {
 			})
 		}
 	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "error reading standard input: %v\n", err)
+		exitCode = 1
+	}
+
+	os.Exit(exitCode)
 }
 
 func sendEvent(event interface{}) {
