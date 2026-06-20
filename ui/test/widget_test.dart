@@ -9,7 +9,7 @@ void main() {
 
     // Verify that our workspace is displayed.
     expect(find.text('Chronos Workspace'), findsOneWidget);
-    expect(find.text('State & Logs'), findsOneWidget);
+    expect(find.text('State Summary'), findsOneWidget);
     expect(find.text('Execute Chronos'), findsOneWidget);
   });
 }

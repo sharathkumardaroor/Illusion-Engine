@@ -15,6 +15,8 @@ class EngineState extends _$EngineState {
     'verified': false,
     'commitsBefore': 0,
     'commitsAfter': 0,
+    'outputPath': '',
+    'reportPath': '',
   };
 
   Process? _process;
@@ -78,8 +80,14 @@ class EngineState extends _$EngineState {
               ...state,
               'status': payload['status'],
               'verified': payload['verified'],
+              'commitsBefore': payload['before'],
               'commitsAfter': payload['after'],
+              'outputPath': payload['output_path'],
+              'reportPath': payload['report_path'],
             };
+          } else if (json['type'] == 'estimate') {
+             final payload = json['payload'];
+             addLog('Estimate: ${payload['commits']} commits, ${payload['runtime']} runtime');
           }
         } catch (e) {
           addLog('Raw: $line');

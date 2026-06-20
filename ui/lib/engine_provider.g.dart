@@ -6,7 +6,7 @@ part of 'engine_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$engineStateHash() => r'65970ecbcbe87f1dca3a2017d3bc3d9d1b18e006';
+String _$engineStateHash() => r'c8e3de4c6fcaebca8d0f417be4bcf350377a5761';
 
 /// See also [EngineState].
 @ProviderFor(EngineState)
