@@ -63,7 +63,7 @@ func main() {
 				PullRequests: 5,
 				Versions:     1,
 				Runtime:      fmt.Sprintf("%ds", commits/2),
-				SizeIncrease: fmt.Sprintf("+%.1fMB", scan.SizeMB*0.1),
+				Size:         fmt.Sprintf("+%.1fMB", scan.SizeMB*0.1),
 			}
 			sendEvent(models.LogEvent{Type: "estimate", Payload: est})
 

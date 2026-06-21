@@ -72,8 +72,8 @@ class EngineState extends _$EngineState {
             ...state,
             'status': payload['status'],
             'verified': payload['verified'] ?? false,
-            'commitsBefore': payload['before'] ?? 0,
-            'commitsAfter': payload['after'] ?? 0,
+            'commitsBefore': payload['before'],
+            'commitsAfter': payload['after'],
             'outputPath': payload['output_path'] ?? '',
             'reportPath': payload['report_path'] ?? '',
           };

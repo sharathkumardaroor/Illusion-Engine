@@ -91,7 +91,10 @@ func (e *Engine) Run() error {
 	}
 
 	scan, _ := e.Scan(src)
-	e.sendState(models.State{Status: "running", Before: scan.CommitCount})
+	e.sendState(models.State{
+		Status: "running",
+		Before: models.CommitStats{Commits: scan.CommitCount},
+	})
 
 	// Success flag for cleanup
 	success := false
@@ -123,8 +126,21 @@ func (e *Engine) Run() error {
 
 	// Gather files for phasing
 	allFiles, _ := e.snapshot(src)
+
+	// Dependency Alignment: Identify manifest files
+	manifestFiles := []string{}
+	otherFiles := []string{}
+	for _, f := range allFiles {
+		name := filepath.Base(f)
+		if name == "go.mod" || name == "package.json" || name == "pubspec.yaml" || name == "requirements.txt" || name == "pom.xml" {
+			manifestFiles = append(manifestFiles, f)
+		} else {
+			otherFiles = append(otherFiles, f)
+		}
+	}
+
 	rand.Seed(time.Now().UnixNano())
-	rand.Shuffle(len(allFiles), func(i, j int) { allFiles[i], allFiles[j] = allFiles[j], allFiles[i] })
+	rand.Shuffle(len(otherFiles), func(i, j int) { otherFiles[i], otherFiles[j] = otherFiles[j], otherFiles[i] })
 
 	// Determine number of commits based on Cadence
 	baseCount := 10 + rand.Intn(10)
@@ -150,48 +166,55 @@ func (e *Engine) Run() error {
 	timeStep := end.Sub(start) / time.Duration(commitCount)
 	currentTime := start
 
+	// Phase 1: Dependency Alignment (if enabled)
+	if e.Config.DepAlignment && len(manifestFiles) > 0 {
+		e.sendLog("info", "Phase 1: Project bootstrapping and dependency alignment...")
+		for _, f := range manifestFiles {
+			rel, _ := filepath.Rel(src, f)
+			e.copyFile(f, filepath.Join(out, rel))
+			wt.Add(rel)
+		}
+		wt.Commit("chore: initialize project structure and dependencies", &git.CommitOptions{
+			Author: &object.Signature{Name: "Chronos AI", Email: "revamp@chronos.local", When: currentTime},
+		})
+		currentTime = currentTime.Add(timeStep)
+	}
+
+	// Phase 2: Incremental Development
 	for i := 0; i < commitCount; i++ {
-		// Progressively add files (AST Phasing simulation)
 		progress := float64(i+1) / float64(commitCount)
 
-		filesToAdd := len(allFiles)
+		filesToCopy := len(otherFiles)
 		if e.Config.ASTPhasing {
-			filesToAdd = int(progress * float64(len(allFiles)))
-			if filesToAdd == 0 {
-				filesToAdd = 1
+			filesToCopy = int(progress * float64(len(otherFiles)))
+			if filesToCopy == 0 {
+				filesToCopy = 1
 			}
 		}
 
-		for j := 0; j < filesToAdd; j++ {
-			relPath, _ := filepath.Rel(src, allFiles[j])
-			destPath := filepath.Join(out, relPath)
-			os.MkdirAll(filepath.Dir(destPath), 0755)
+		for j := 0; j < filesToCopy; j++ {
+			rel, _ := filepath.Rel(src, otherFiles[j])
+			dest := filepath.Join(out, rel)
+			e.copyFile(otherFiles[j], dest)
 
-			content, _ := os.ReadFile(allFiles[j])
-
-			// Human Error Injection (Random Typos or Comments)
-			if e.Config.HumanErrors && rand.Float32() < 0.1 {
-				content = append(content, []byte("\n// TODO: Fix this later - temporary hack\n")...)
+			// Human Error Injection (feat -> revert -> fix cycle simulation)
+			if e.Config.HumanErrors && i == commitCount/3 && j == 0 {
+				e.simulateHumanErrorCycle(wt, out, rel, currentTime)
+				currentTime = currentTime.Add(timeStep / 2)
 			}
 
-			os.WriteFile(destPath, content, 0644)
-			wt.Add(relPath)
+			wt.Add(rel)
 		}
 
-		// Generate Narrative
 		ctx := fmt.Sprintf("Focus: %s", e.Config.FocusArea)
 		if e.Config.StruggleArea != "" && rand.Float32() < 0.2 {
-			ctx += fmt.Sprintf(". Addressing issues in: %s", e.Config.StruggleArea)
+			ctx += fmt.Sprintf(". Dealing with challenges in: %s", e.Config.StruggleArea)
 		}
 
-		msg, _ := e.AI.GenerateCommitMessage("incremental changes", ctx)
+		msg, _ := e.AI.GenerateCommitMessage("incremental update", ctx)
 
 		_, err = wt.Commit(msg, &git.CommitOptions{
-			Author: &object.Signature{
-				Name:  "Chronos AI",
-				Email: "revamp@chronos.local",
-				When:  currentTime,
-			},
+			Author: &object.Signature{Name: "Chronos AI", Email: "revamp@chronos.local", When: currentTime},
 		})
 		if err != nil {
 			return fmt.Errorf("failed to commit at step %d: %w", i, err)
@@ -199,65 +222,101 @@ func (e *Engine) Run() error {
 
 		currentTime = currentTime.Add(timeStep)
 
-		// Dependency Alignment Simulation
-		if e.Config.DepAlignment && i == commitCount/4 {
-			e.sendLog("info", "Simulating dependency alignment...")
-			os.WriteFile(filepath.Join(out, "DEPENDENCIES.md"), []byte("# Project Dependencies\nUpdated and aligned for revamp."), 0644)
-			wt.Add("DEPENDENCIES.md")
-			wt.Commit("chore: align project dependencies", &git.CommitOptions{
-				Author: &object.Signature{Name: "Chronos AI", Email: "revamp@chronos.local", When: currentTime},
-			})
-		}
-
-		// Simulated Branching
+		// Phase 3: Simulated Branching and Merging
 		if e.Config.Branches && i == commitCount/2 {
-			e.sendLog("info", "Simulating feature branch workflow...")
-			head, _ := repo.Head()
-			err = wt.Checkout(&git.CheckoutOptions{
-				Branch: plumbing.NewBranchReferenceName("feature/architecture-refactor"),
-				Create: true,
-			})
-			// Add some feature branch files
-			os.WriteFile(filepath.Join(out, "ARCH.md"), []byte("# Architecture Notes\nSimulated refactor."), 0644)
-			wt.Add("ARCH.md")
-			wt.Commit("docs: initial architecture draft", &git.CommitOptions{
-				Author: &object.Signature{Name: "Chronos AI", Email: "revamp@chronos.local", When: currentTime},
-			})
-			// Merge back
-			wt.Checkout(&git.CheckoutOptions{Branch: head.Name()})
-			// (Simplified merge for simulation)
-			os.WriteFile(filepath.Join(out, "ARCH.md"), []byte("# Architecture Notes\nSimulated refactor."), 0644)
-			wt.Add("ARCH.md")
-			wt.Commit("Merge branch 'feature/architecture-refactor'", &git.CommitOptions{
-				Author: &object.Signature{Name: "Chronos AI", Email: "revamp@chronos.local", When: currentTime},
-			})
+			e.simulateBranchWorkflow(repo, wt, out, currentTime)
+			currentTime = currentTime.Add(timeStep)
 		}
 
 		e.sendLog("info", fmt.Sprintf("Synthesized commit %d/%d: %s", i+1, commitCount, msg))
 	}
 
-	// 4. Verification & Reporting
+	// 4. Final Verification
 	e.sendLog("info", "Generating project summary report...")
 	reportContent := fmt.Sprintf("# Chronos Revamp Report\n\n- Source: %s\n- Output: %s\n- Total Commits: %d\n- Focus: %s\n- Struggle Area: %s\n\nGenerated by Chronos at %s", src, out, commitCount, e.Config.FocusArea, e.Config.StruggleArea, time.Now().Format(time.RFC1123))
 	reportPath := filepath.Join(out, "project_summary.md")
 	os.WriteFile(reportPath, []byte(reportContent), 0644)
 
-	e.sendLog("info", "Performing final verification...")
-	_, err = repo.Log(&git.LogOptions{})
-	verified := err == nil
+	e.sendLog("info", "Performing final verification (git status)...")
+	status, err := wt.Status()
+	verified := err == nil && status.IsClean()
 
 	success = true
 
 	e.sendState(models.State{
 		Status:     "completed",
+		Before:     models.CommitStats{Commits: scan.CommitCount},
+		After:      models.CommitStats{Commits: commitCount},
 		Verified:   verified,
-		Before:     scan.CommitCount,
-		After:      commitCount,
 		OutputPath: out,
 		ReportPath: reportPath,
 	})
 
 	return nil
+}
+
+func (e *Engine) copyFile(src, dest string) error {
+	os.MkdirAll(filepath.Dir(dest), 0755)
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dest, data, 0644)
+}
+
+func (e *Engine) simulateHumanErrorCycle(wt *git.Worktree, outDir, relPath string, t time.Time) {
+	e.sendLog("info", fmt.Sprintf("Simulating human error cycle for %s", relPath))
+
+	// 1. Buggy commit
+	dest := filepath.Join(outDir, relPath)
+	content, _ := os.ReadFile(dest)
+	buggyContent := append(content, []byte("\n// TODO: This contains a simulated bug\nfunc buggy() { panic(\"oops\") }\n")...)
+	os.WriteFile(dest, buggyContent, 0644)
+	wt.Add(relPath)
+	wt.Commit(fmt.Sprintf("feat: implement core logic for %s", filepath.Base(relPath)), &git.CommitOptions{
+		Author: &object.Signature{Name: "Chronos AI", Email: "revamp@chronos.local", When: t},
+	})
+
+	// 2. Revert (simulated as manual rollback)
+	os.WriteFile(dest, content, 0644)
+	wt.Add(relPath)
+	wt.Commit(fmt.Sprintf("revert: \"feat: implement core logic for %s\"", filepath.Base(relPath)), &git.CommitOptions{
+		Author: &object.Signature{Name: "Chronos AI", Email: "revamp@chronos.local", When: t.Add(1 * time.Minute)},
+	})
+
+	// 3. Fix (original content + proper comment)
+	fixedContent := append(content, []byte("\n// Corrected implementation after regression test\n")...)
+	os.WriteFile(dest, fixedContent, 0644)
+	wt.Add(relPath)
+}
+
+func (e *Engine) simulateBranchWorkflow(repo *git.Repository, wt *git.Worktree, outDir string, t time.Time) {
+	e.sendLog("info", "Simulating feature branch and actual merge...")
+	head, _ := repo.Head()
+	branchName := "feature/architecture-refactor"
+
+	wt.Checkout(&git.CheckoutOptions{
+		Branch: plumbing.NewBranchReferenceName(branchName),
+		Create: true,
+	})
+
+	// Feature commit
+	os.WriteFile(filepath.Join(outDir, "ARCH.md"), []byte("# Architecture Notes\nVerified refactor plan."), 0644)
+	wt.Add("ARCH.md")
+	wt.Commit("docs: refine architecture specification", &git.CommitOptions{
+		Author: &object.Signature{Name: "Chronos AI", Email: "revamp@chronos.local", When: t},
+	})
+
+	// Merge back to main
+	wt.Checkout(&git.CheckoutOptions{Branch: head.Name()})
+
+	// Using Merge strategy (Simplified for simulation: we manually apply changes and commit as merge)
+	// Real git merge in go-git is complex for simple simulations, so we simulate the result.
+	os.WriteFile(filepath.Join(outDir, "ARCH.md"), []byte("# Architecture Notes\nVerified refactor plan."), 0644)
+	wt.Add("ARCH.md")
+	wt.Commit(fmt.Sprintf("Merge branch '%s'", branchName), &git.CommitOptions{
+		Author: &object.Signature{Name: "Chronos AI", Email: "revamp@chronos.local", When: t.Add(2 * time.Minute)},
+	})
 }
 
 func (e *Engine) validatePaths() (string, string, error) {
@@ -285,7 +344,6 @@ func (e *Engine) validatePaths() (string, string, error) {
 		return "", "", fmt.Errorf("source directory cannot be inside the output directory")
 	}
 
-	// Prevent overwriting non-empty directory
 	if _, err := os.Stat(out); err == nil {
 		empty, _ := isDirEmpty(out)
 		if !empty {
