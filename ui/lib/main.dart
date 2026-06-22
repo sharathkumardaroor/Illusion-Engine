@@ -37,6 +37,7 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
   String? sourceDir;
   String? outputDir;
   String engineMode = 'Deterministic';
+  String cadence = 'Medium';
   DateTime startDate = DateTime.now().subtract(const Duration(days: 90));
   DateTime endDate = DateTime.now();
 
@@ -154,6 +155,16 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
 
                     const SizedBox(height: 24),
                     _sectionTitle('Timeline Configuration'),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: cadence,
+                      items: ['Low', 'Medium', 'High']
+                          .map((e) => DropdownMenuItem(value: e, child: Text('Commit Cadence: $e')))
+                          .toList(),
+                      onChanged: (val) => setState(() => cadence = val!),
+                      decoration: const InputDecoration(border: OutlineInputBorder()),
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
@@ -217,6 +228,7 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                             'struggleArea': struggleAreaController.text,
                             'startDate': startDate.toIso8601String(),
                             'endDate': endDate.toIso8601String(),
+                            'cadence': cadence,
                             'humanErrors': humanErrors,
                             'astPhasing': astPhasing,
                             'depAlignment': depAlignment,
@@ -235,6 +247,7 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                                 'sourceDir': sourceDir,
                                 'useAI': engineMode != 'Deterministic',
                                 'branches': branches,
+                                'cadence': cadence,
                              });
                           },
                           child: const Text('Refresh Estimate'),
@@ -256,9 +269,9 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
                 children: [
                   Text('State Summary', style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 24),
-                  _stateCard('Source', sourceDir == null ? '-' : '${engineState['commitsBefore']} commits'),
+                  _stateCard('Source', sourceDir == null ? '-' : '${engineState['commitsBefore'] != null ? engineState['commitsBefore']['commits'] : 0} commits'),
                   const SizedBox(height: 12),
-                  _stateCard('Output', '${engineState['commitsAfter']} commits'),
+                  _stateCard('Output', '${engineState['commitsAfter'] != null ? engineState['commitsAfter']['commits'] : 0} commits'),
                   const SizedBox(height: 12),
                   _stateCard('Status', engineState['status'].toString().toUpperCase()),
                   if (engineState['verified'] == true) ...[
@@ -343,14 +356,14 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
           ],
         ),
         const SizedBox(height: 12),
-        _scanRow('Files/Folders', '${scan['file_count']} / ${scan['folder_count']}'),
-        _scanRow('Total Size', '${(scan['size_mb'] as double).toStringAsFixed(2)} MB'),
-        if (scan['is_git']) ...[
+        _scanRow('Files/Folders', '${scan['fileCount']} / ${scan['folderCount']}'),
+        _scanRow('Total Size', '${scan['sizeMb'] != null ? (scan['sizeMb'] as double).toStringAsFixed(2) : '0.00'} MB'),
+        if (scan['isGit'] == true) ...[
           const Divider(height: 20),
-          _scanRow('Git Commits', '${scan['commit_count']}'),
-          _scanRow('Branches', '${scan['branch_count']}'),
-          _scanRow('First Commit', '${scan['first_commit']}'),
-          _scanRow('Latest Commit', '${scan['latest_commit']}'),
+          _scanRow('Git Commits', '${scan['commitCount']}'),
+          _scanRow('Branches', '${scan['branchCount']}'),
+          _scanRow('First Commit', '${scan['firstCommit']}'),
+          _scanRow('Latest Commit', '${scan['latestCommit']}'),
         ],
       ],
     ),
@@ -387,6 +400,7 @@ class _ChronosWorkspaceState extends ConsumerState<ChronosWorkspace> {
             _estItem(Icons.history, '${est['commits']}', 'Commits'),
             _estItem(Icons.account_tree, '${est['branches']}', 'Branches'),
             _estItem(Icons.timer, '${est['runtime']}', 'Time'),
+            _estItem(Icons.storage, '${est['size']}', 'Size'),
           ],
         ),
       ],

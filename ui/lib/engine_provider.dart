@@ -7,21 +7,30 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'engine_provider.g.dart';
 
-@riverpod
+@Riverpod(keepAlive: true)
 class EngineState extends _$EngineState {
   @override
-  Map<String, dynamic> build() => {
-    'logs': <String>[],
-    'status': 'idle',
-    'verified': false,
-    'commitsBefore': 0,
-    'commitsAfter': 0,
-    'outputPath': '',
-    'reportPath': '',
-    'testSourcePath': null,
-    'scanResult': null,
-    'estimate': null,
-  };
+  Map<String, dynamic> build() {
+    ref.onDispose(() {
+      _process?.stdin.writeln(jsonEncode({'action': 'exit'}));
+      _process?.kill();
+      _stdoutSub?.cancel();
+      _stderrSub?.cancel();
+    });
+
+    return {
+      'logs': <String>[],
+      'status': 'idle',
+      'verified': false,
+      'commitsBefore': {'commits': 0},
+      'commitsAfter': {'commits': 0},
+      'outputPath': '',
+      'reportPath': '',
+      'testSourcePath': null,
+      'scanResult': null,
+      'estimate': null,
+    };
+  }
 
   Process? _process;
   StreamSubscription? _stdoutSub;
@@ -64,8 +73,8 @@ class EngineState extends _$EngineState {
             ...state,
             'status': payload['status'],
             'verified': payload['verified'] ?? false,
-            'commitsBefore': payload['before'] ?? 0,
-            'commitsAfter': payload['after'] ?? 0,
+            'commitsBefore': payload['before'],
+            'commitsAfter': payload['after'],
             'outputPath': payload['output_path'] ?? '',
             'reportPath': payload['report_path'] ?? '',
           };
@@ -142,21 +151,13 @@ class EngineState extends _$EngineState {
   }
 
   Future<void> execute(Map<String, dynamic> config) async {
-    if (_process != null && state['status'] != 'preparing-test') {
-      // Keep process alive if we are just switching from idle to running
-      // But if it's already running a different execution, we might need to restart it?
-      // Actually, the engine is designed to handle multiple commands now.
-      // However, execute usually implies a fresh start for the engine's internal state if it had any.
-      // But my engine main.go loop handles multiple commands.
-    }
-
     state = {
       ...state,
       'logs': state['status'] == 'preparing-test' ? state['logs'] : <String>[],
       'status': 'running',
       'verified': false,
-      'commitsBefore': 0,
-      'commitsAfter': 0,
+      'commitsBefore': {'commits': 0},
+      'commitsAfter': {'commits': 0},
       'outputPath': '',
       'reportPath': '',
     };
@@ -173,7 +174,6 @@ class EngineState extends _$EngineState {
         'action': 'execute',
         'params': config,
       }));
-      await _process!.stdin.close();
     } catch (e) {
       addLog('Failed to start engine: $e');
       state = {...state, 'status': 'error'};

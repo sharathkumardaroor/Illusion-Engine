@@ -17,7 +17,7 @@ type Config struct {
 	Model          string `json:"model"`
 	StartDate      string `json:"startDate"`
 	EndDate        string `json:"endDate"`
-	Cadence        string `json:"cadence"` // Low/Med/High
+	Cadence        string `json:"cadence"` // Low/Medium/High
 	FocusArea      string `json:"focusArea"`
 	StruggleArea   string `json:"struggleArea"`
 	HumanErrors    bool   `json:"humanErrors"`
@@ -27,14 +27,18 @@ type Config struct {
 }
 
 type ScanResult struct {
-	IsGit        bool   `json:"isGit"`
-	FileCount    int    `json:"fileCount"`
-	FolderCount  int    `json:"folderCount"`
+	IsGit        bool    `json:"isGit"`
+	FileCount    int     `json:"fileCount"`
+	FolderCount  int     `json:"folderCount"`
 	SizeMB       float64 `json:"sizeMb"`
-	CommitCount  int    `json:"commitCount"`
-	FirstCommit  string `json:"firstCommit"`
-	LatestCommit string `json:"latestCommit"`
-	BranchCount  int    `json:"branchCount"`
+	CommitCount  int     `json:"commitCount"`
+	FirstCommit  string  `json:"firstCommit"`
+	LatestCommit string  `json:"latestCommit"`
+	BranchCount  int     `json:"branchCount"`
+}
+
+type CommitStats struct {
+	Commits int `json:"commits"`
 }
 
 type Estimate struct {
@@ -43,14 +47,14 @@ type Estimate struct {
 	PullRequests int    `json:"pullRequests"`
 	Versions     int    `json:"versions"`
 	Runtime      string `json:"runtime"`
-	SizeIncrease string `json:"sizeIncrease"`
+	Size         string `json:"size"`
 }
 
 type State struct {
-	Status     string `json:"status"`
-	Before     int    `json:"before"`
-	After      int    `json:"after"`
-	Verified   bool   `json:"verified"`
-	OutputPath string `json:"output_path"`
-	ReportPath string `json:"report_path"`
+	Status     string      `json:"status"`
+	Before     CommitStats `json:"before"`
+	After      CommitStats `json:"after"`
+	Verified   bool        `json:"verified"`
+	OutputPath string      `json:"output_path"`
+	ReportPath string      `json:"report_path"`
 }

@@ -51,10 +51,25 @@ func main() {
 			eng := engine.New(cfg)
 			scan, _ := eng.Scan(cfg.SourceDir)
 
-			// Dynamic calculation based on scan
-			commits := 20
+			// Dynamic calculation based on scan and cadence
+			baseCount := 20
 			if scan.CommitCount > 0 {
-				commits = int(float64(scan.CommitCount) * 1.2)
+				baseCount = scan.CommitCount
+			}
+
+			multiplier := 1.0
+			switch cfg.Cadence {
+			case "Low":
+				multiplier = 0.5
+			case "High":
+				multiplier = 2.0
+			default:
+				multiplier = 1.0
+			}
+
+			commits := int(float64(baseCount) * multiplier)
+			if commits < 5 {
+				commits = 5
 			}
 
 			est := models.Estimate{
@@ -63,7 +78,7 @@ func main() {
 				PullRequests: 5,
 				Versions:     1,
 				Runtime:      fmt.Sprintf("%ds", commits/2),
-				SizeIncrease: fmt.Sprintf("+%.1fMB", scan.SizeMB*0.1),
+				Size:         fmt.Sprintf("+%.1fMB", scan.SizeMB*0.1),
 			}
 			sendEvent(models.LogEvent{Type: "estimate", Payload: est})
 
@@ -109,6 +124,8 @@ func main() {
 				Level:   "info",
 				Message: "pong",
 			})
+		case "exit":
+			os.Exit(0)
 		}
 	}
 
